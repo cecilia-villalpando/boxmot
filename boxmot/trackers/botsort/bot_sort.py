@@ -1,6 +1,8 @@
 # Mikel Broström 🔥 Yolo Tracking 🧾 AGPL-3.0 license
 
+import torch
 import numpy as np
+from pathlib import Path
 from collections import deque
 
 from boxmot.appearance.reid_auto_backend import ReidAutoBackend
@@ -11,7 +13,6 @@ from boxmot.utils.matching import (embedding_distance, fuse_score,
                                    iou_distance, linear_assignment)
 from boxmot.utils.ops import xywh2xyxy, xyxy2xywh
 from boxmot.trackers.basetracker import BaseTracker
-from boxmot.utils import PerClassDecorator
 
 
 class STrack(BaseTrack):
@@ -187,12 +188,32 @@ class STrack(BaseTrack):
 
 
 class BoTSORT(BaseTracker):
+    """
+    BoTSORT Tracker: A tracking algorithm that utilizes a combination of appearance and motion-based tracking.
+
+    Args:
+        model_weights (str): Path to the model weights for ReID (Re-Identification).
+        device (str): Device on which to run the model (e.g., 'cpu' or 'cuda').
+        fp16 (bool): Whether to use half-precision (fp16) for faster inference on compatible devices.
+        per_class (bool, optional): Whether to perform per-class tracking
+        track_high_thresh (float, optional): High threshold for detection confidence. Detections above this threshold are used in the first association round.
+        track_low_thresh (float, optional): Low threshold for detection confidence. Detections below this threshold are ignored.
+        new_track_thresh (float, optional): Threshold for creating a new track. Detections above this threshold will be considered as potential new tracks.
+        track_buffer (int, optional): Number of frames to keep a track alive after it was last detected.
+        match_thresh (float, optional): Threshold for the matching step in data association.
+        proximity_thresh (float, optional): Threshold for IoU (Intersection over Union) distance in first-round association.
+        appearance_thresh (float, optional): Threshold for appearance embedding distance in the ReID module.
+        cmc_method (str, optional): Method for correcting camera motion. Options include "sof" (simple optical flow).
+        frame_rate (int, optional): Frame rate of the video being processed. Used to scale the track buffer size.
+        fuse_first_associate (bool, optional): Whether to fuse appearance and motion information during the first association step.
+        with_reid (bool, optional): Whether to use ReID (Re-Identification) features for association.
+    """
     def __init__(
         self,
-        model_weights,
-        device,
-        fp16,
-        per_class=False,
+        model_weights: Path,
+        device: torch.device,
+        fp16: bool,
+        per_class: bool = False,
         track_high_thresh: float = 0.5,
         track_low_thresh: float = 0.1,
         new_track_thresh: float = 0.6,
@@ -205,7 +226,7 @@ class BoTSORT(BaseTracker):
         fuse_first_associate: bool = False,
         with_reid: bool = True,
     ):
-        super().__init__()
+        super().__init__(per_class=per_class)
         self.lost_stracks = []  # type: list[STrack]
         self.removed_stracks = []  # type: list[STrack]
         BaseTrack.clear_count()
@@ -217,6 +238,7 @@ class BoTSORT(BaseTracker):
         self.match_thresh = match_thresh
 
         self.buffer_size = int(frame_rate / 30.0 * track_buffer)
+        self.max_time_lost = self.buffer_size
         self.kalman_filter = KalmanFilterXYWH()
 
         # ReID module
@@ -232,7 +254,7 @@ class BoTSORT(BaseTracker):
         self.cmc = SOF()
         self.fuse_first_associate = fuse_first_associate
 
-    @PerClassDecorator
+    @BaseTracker.per_class_decorator
     def update(self, dets: np.ndarray, img: np.ndarray, embs: np.ndarray = None) -> np.ndarray:
         
         self.check_inputs(dets, img)
@@ -387,7 +409,7 @@ class BoTSORT(BaseTracker):
 
         """ Step 5: Update state"""
         for track in self.lost_stracks:
-            if self.frame_count - track.end_frame > self.max_age:
+            if self.frame_count - track.end_frame > self.max_time_lost:
                 track.mark_removed()
                 removed_stracks.append(track)
 

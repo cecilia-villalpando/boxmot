@@ -22,7 +22,7 @@ from boxmot.utils.checks import RequirementsChecker
 from boxmot.utils.torch_utils import select_device
 
 from ultralytics import YOLO
-from ultralytics.data.loaders import LoadImages
+from ultralytics.data.loaders import LoadImagesAndVideos
 from ultralytics.utils.files import increment_path
 from ultralytics.data.utils import VID_FORMATS
 
@@ -84,9 +84,11 @@ def generate_dets_embs(args: argparse.Namespace, y: Path) -> None:
         y (Path): Path to the YOLO model file.
     """
     WEIGHTS.mkdir(parents=True, exist_ok=True)
+    
+    ul_models = ['yolov8', 'yolov9', 'yolov10', 'rtdetr', 'sam']
 
-    yolo = YOLO(y if 'yolov8' in str(y) else 'yolov8n.pt')
-
+    yolo = YOLO(y if any(yolo in str(args.yolo_model) for yolo in ul_models) else 'yolov8n.pt')
+    
     results = yolo(
         source=args.source,
         conf=args.conf,
@@ -103,7 +105,7 @@ def generate_dets_embs(args: argparse.Namespace, y: Path) -> None:
         vid_stride=args.vid_stride,
     )
 
-    if 'yolov8' not in str(y):
+    if not any(yolo in str(args.yolo_model) for yolo in ul_models):
         m = get_yolo_inferer(y)
         model = m(model=y, device=yolo.predictor.device, args=yolo.predictor.args)
         yolo.predictor.model = model
@@ -190,7 +192,7 @@ def generate_mot_results(args: argparse.Namespace, config_dict: dict = None) -> 
 
     dets_n_embs = np.concatenate([dets, embs], axis=1)
 
-    dataset = LoadImages(args.source)
+    dataset = LoadImagesAndVideos(args.source)
 
     txt_path = args.exp_folder_path / (Path(args.source).parent.name + '.txt')
     all_mot_results = []

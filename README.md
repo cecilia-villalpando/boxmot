@@ -18,7 +18,7 @@
 
 ## Introduction
 
-This repo contains a collections of pluggable state-of-the-art multi-object trackers for segmentation, object detection and pose estimation models. For the methods using appearance description, both heavy ([CLIPReID](https://arxiv.org/pdf/2211.13977.pdf)) and lightweight state-of-the-art ReID models ([LightMBN](https://arxiv.org/pdf/2101.10774.pdf), [OSNet](https://arxiv.org/pdf/1905.00953.pdf) and more) are available for automatic download. We provide examples on how to use this package together with popular object detection models such as: [Yolov8](https://github.com/ultralytics), [Yolo-NAS](https://github.com/Deci-AI/super-gradients) and [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX).
+This repo contains a collections of pluggable state-of-the-art multi-object trackers for segmentation, object detection and pose estimation models. For the methods using appearance description, both heavy ([CLIPReID](https://arxiv.org/pdf/2211.13977.pdf)) and lightweight state-of-the-art ReID models ([LightMBN](https://arxiv.org/pdf/2101.10774.pdf), [OSNet](https://arxiv.org/pdf/1905.00953.pdf) and more) are available for automatic download. We provide examples on how to use this package together with popular object detection models such as: [YOLOv8, YOLOv9 and YOLOv10](https://github.com/ultralytics)
 
 <div align="center">
 
@@ -82,6 +82,7 @@ In inverse chronological order:
 
 #### News
 
+* Added YOLOv9 and YOLOv10 support
 * Hyperparameter search for all trackers using RayTune (July 2024)
 * Added Improved Association Pipeline Tracker by [rolson24](https://github.com/rolson24) in [#1527](https://github.com/mikel-brostrom/boxmot/pull/1527) (July 2024)
 
@@ -92,9 +93,9 @@ Today's multi-object tracking options are heavily dependant on the computation c
 
 ## Installation
 
-Start with [**Python>=3.8**](https://www.python.org/) environment.
+Start with [**Python>=3.9**](https://www.python.org/) environment.
 
-If you want to run the YOLOv8, YOLO-NAS or YOLOX examples:
+If you want to run the YOLOv8, YOLOv9 or YOLOv10 examples:
 
 ```
 git clone https://github.com/mikel-brostrom/boxmot.git
@@ -110,7 +111,7 @@ but if you only want to import the tracking modules you can simply:
 pip install boxmot
 ```
 
-## YOLOv8 | YOLO-NAS | YOLOX examples
+## YOLOv8 | YOLOv9 | YOLOv10 examples
 
 <details>
 <summary>Tracking</summary>
@@ -121,9 +122,9 @@ pip install boxmot
 
 
 ```bash
-$ python tracking/track.py --yolo-model yolov8n       # bboxes only
-  python tracking/track.py --yolo-model yolo_nas_s    # bboxes only
-  python tracking/track.py --yolo-model yolox_n       # bboxes only
+$ python tracking/track.py --yolo-model yolov10n      # bboxes only
+  python tracking/track.py --yolo-model yolov9s       # bboxes only
+  python tracking/track.py --yolo-model yolov8n       # bboxes only
                                         yolov8n-seg   # bboxes + segmentation masks
                                         yolov8n-pose  # bboxes + pose estimation
 
@@ -204,7 +205,7 @@ python tracking/track.py --source 0 --yolo-model yolov8s.pt --classes 16 17  # C
 Evaluate a combination of detector, tracking method and ReID model on standard MOT dataset or you custom one by
 
 ```bash
-$ python3 tracking/val.py --benchmark MOT17-mini --yolo-model yolov8n.pt --reid-model osnet_x0_25_msmt17.pt --tracking-method deepocsort --verbose --source ./assert/MOT17-mini/train
+$ python3 tracking/val.py --benchmark MOT17-mini --yolo-model yolov8n.pt --reid-model osnet_x0_25_msmt17.pt --tracking-method deepocsort --verbose --source ./assets/MOT17-mini/train
 $ python3 tracking/val.py --benchmark MOT17      --yolo-model yolov8n.pt --reid-model osnet_x0_25_msmt17.pt --tracking-method ocsort     --verbose --source ./tracking/val_utils/MOT17/train
 ```
 
