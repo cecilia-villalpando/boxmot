@@ -5,15 +5,21 @@ import cv2
 import numpy as np
 from functools import partial
 from pathlib import Path
+from datetime import date
+import os
+import tqdm
+import time
+import tracemalloc
+import psutil
 
 import torch
-import os
 
 from boxmot import TRACKERS
 from boxmot.tracker_zoo import create_tracker
 from boxmot.utils import ROOT, WEIGHTS, TRACKER_CONFIGS
 from boxmot.utils.checks import RequirementsChecker
 from tracking.detectors import get_yolo_inferer
+from video_converter import im2vid
 
 checker = RequirementsChecker()
 checker.check_packages(('ultralytics @ git+https://github.com/mikel-brostrom/ultralytics.git', ))  # install
@@ -22,7 +28,6 @@ from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
 from ultralytics.data.utils import VID_FORMATS
 from ultralytics.utils.plotting import save_one_box
-
 
 def on_predict_start(predictor, persist=False):
     """
@@ -58,12 +63,22 @@ def on_predict_start(predictor, persist=False):
 @torch.no_grad()
 def run(args):
 
+    tracemalloc.start()
+    cpu_percent_before = psutil.cpu_percent()
+
     yolo = YOLO(
         args.yolo_model if 'yolov8' in str(args.yolo_model) else 'yolov8n.pt',
     )
 
+    #base_path = Path('/home/ubuntu/data/UAV123/data_seq/UAV123/')
+    #base_path = Path('/home/ubuntu/.cache/pypoetry/virtualenvs/boxmot-2v5TJBaT-py3.10/boxmot/tracking/val_utils/data')
+    #source_path = base_path / args.source
+
+    start_time = time.perf_counter()
+
     results = yolo.track(
-        source=args.source,
+        #source=str(source_path),
+        source = args.source,
         conf=args.conf,
         iou=args.iou,
         agnostic_nms=args.agnostic_nms,
@@ -99,7 +114,15 @@ def run(args):
     # store custom args in predictor
     yolo.predictor.custom_args = args
 
+    #os.mkdir(output_path)
+
+    frame_count = 0
+    #frame_times = []
+
     for r in results:
+
+        frame_count += 1
+        #start_frametime = time.perf_counter()
 
         img = yolo.predictor.trackers[0].plot_results(r.orig_img, args.show_trajectories)
 
@@ -108,6 +131,31 @@ def run(args):
             key = cv2.waitKey(1) & 0xFF
             if key == ord(' ') or key == ord('q'):
                 break
+
+    print(f'Files saved to {args.project}/{args.name}')
+
+    end_time = time.perf_counter()
+    processing_time = end_time - start_time
+    #fps = frame_count/processing_time
+    current, peak = tracemalloc.get_traced_memory()
+    cpu_percent_after = psutil.cpu_percent()
+    print(f'CPU average load: {psutil.getloadavg()}')
+    print(f'Number of CPUs: {psutil.cpu_count()}')
+    print(f'Current memory usage: {current / 10**6:.2f} MB')
+    print(f'Peak memory usage: {peak / 10**6:.2f} MB')
+
+    name = args.name
+    project = args.project
+
+    output_path = str(project) + '/' + str(name)
+
+    print(f'{output_path}')
+
+    im2vid(output_path, str(name))
+    print(f'Processing time: {processing_time:.2f}s')
+    #print(f'FPS: {fps:.2f}')
+    #print(f'CPU utilisation: {cpu_percent_after - cpu_percent_before:.2f}%')
+
 
 
 def parse_opt():
@@ -135,9 +183,9 @@ def parse_opt():
     # class 0 is person, 1 is bycicle, 2 is car... 79 is oven
     parser.add_argument('--classes', nargs='+', type=int,
                         help='filter by class: --classes 0, or --classes 0 2 3')
-    parser.add_argument('--project', default=ROOT / 'runs' / 'track',
+    parser.add_argument('--project', default='/home/ubuntu/.cache/pypoetry/virtualenvs/boxmot-2v5TJBaT-py3.10/boxmot/runs/track',
                         help='save results to project/name')
-    parser.add_argument('--name', default='exp',
+    parser.add_argument('--name',
                         help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true',
                         help='existing project/name ok, do not increment')
@@ -165,6 +213,13 @@ def parse_opt():
                         help='class-agnostic NMS')
 
     opt = parser.parse_args()
+
+    if opt.name is None:
+        today = date.today()
+        today = today.strftime("%m-%d-%Y")
+        
+        opt.name = f'{today}' + '_' + str(opt.tracking_method) + '_' + str(opt.source)
+
     return opt
 
 
